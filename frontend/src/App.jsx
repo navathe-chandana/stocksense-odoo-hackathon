@@ -1,6 +1,11 @@
 
 import { useState, useEffect } from 'react'
-import { apiRequest } from './api'
+import {
+  apiRequest,
+  getStoredUser,
+  setStoredAuth,
+  clearStoredAuth,
+} from './api'
 import './App.css'
 
 import Receipts from './pages/Receipts'
@@ -17,8 +22,22 @@ const initialMovements = [
   { id: 'ADJ/004', product: 'Safety Helmets', type: 'Adjustment', quantity: '-2 Units', status: 'Done' },
 ]
 
+function getInitials(name = '', email = '') {
+  const source = name || email || 'U'
+  return source
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map(part => part[0]?.toUpperCase() || '')
+    .join('') || 'U'
+}
+
 function App() {
   const [page, setPage] = useState('Dashboard')
+  const [currentUser, setCurrentUser] = useState(getStoredUser())
+  const [isAuthenticated, setIsAuthenticated] = useState(Boolean(getStoredUser()))
+  const [authLoading, setAuthLoading] = useState(true)
+  const [showProfileMenu, setShowProfileMenu] = useState(false)
 
   // Backend data
   const [products, setProducts] = useState([])
@@ -29,6 +48,9 @@ function App() {
 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+
+  const [loginForm, setLoginForm] = useState({ email: '', password: '' })
+  const [loginState, setLoginState] = useState({ loading: false, error: '' })
 
   // Product page state
   const [search, setSearch] = useState('')
@@ -45,8 +67,11 @@ function App() {
     location: ''
   })
 
-  // Fetch data from backend
   async function loadData() {
+    if (!isAuthenticated) {
+      return
+    }
+
     try {
       setLoading(true)
       setError('')
@@ -79,12 +104,91 @@ function App() {
     }
   }
 
-  // Load data when the application opens
+  async function verifySession() {
+    try {
+      const profile = await apiRequest('/auth/me')
+      const user = profile.user || getStoredUser()
+
+      setCurrentUser(user)
+      setStoredAuth(localStorage.getItem('stocksense_token') || '', user)
+      setIsAuthenticated(true)
+    } catch (err) {
+      console.error('Session verification failed:', err)
+      clearStoredAuth()
+      setCurrentUser(null)
+      setIsAuthenticated(false)
+    } finally {
+      setAuthLoading(false)
+    }
+  }
+
   useEffect(() => {
-    loadData()
+    const token = localStorage.getItem('stocksense_token')
+
+    if (!token) {
+      setCurrentUser(null)
+      setIsAuthenticated(false)
+      setAuthLoading(false)
+      return
+    }
+
+    verifySession()
   }, [])
 
-  // Combine product data with its stock records
+  useEffect(() => {
+    if (isAuthenticated) {
+      loadData()
+    }
+  }, [isAuthenticated])
+
+  async function handleLogin(event) {
+    event.preventDefault()
+
+    try {
+      setLoginState({ loading: true, error: '' })
+
+      const response = await apiRequest('/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({
+          email: loginForm.email.trim(),
+          password: loginForm.password,
+        })
+      })
+
+      const user = response.user || null
+      const token = response.token || ''
+
+      if (!token) {
+        throw new Error('Authentication token missing from server response')
+      }
+
+      setStoredAuth(token, user)
+      setCurrentUser(user)
+      setIsAuthenticated(true)
+      setPage('Dashboard')
+      setLoginForm({ email: '', password: '' })
+      setShowProfileMenu(false)
+    } catch (err) {
+      setLoginState({
+        loading: false,
+        error: err.message || 'Unable to sign in. Please try again.'
+      })
+    } finally {
+      setLoginState(prev => ({ ...prev, loading: false }))
+    }
+  }
+
+  function handleLogout() {
+    clearStoredAuth()
+    setCurrentUser(null)
+    setIsAuthenticated(false)
+    setPage('Dashboard')
+    setShowProfileMenu(false)
+    setLoginForm({ email: '', password: '' })
+    setLoginState({ loading: false, error: '' })
+    setError('')
+  }
+
   const displayProducts = products.map(product => {
     const records = stockRecords.filter(
       item => Number(item.product_id) === Number(product.id)
@@ -104,7 +208,6 @@ function App() {
     }
   })
 
-  // Dashboard calculations
   const totalStock = stockRecords.reduce(
     (sum, item) => sum + Number(item.quantity || 0),
     0
@@ -119,7 +222,6 @@ function App() {
       .includes(search.toLowerCase())
   )
 
-  // Open Add Product form
   function openAddForm() {
     setEditingId(null)
 
@@ -136,33 +238,27 @@ function App() {
     setShowForm(true)
   }
 
-  // Edit is not supported by the current backend API
   function openEditForm() {
     alert('Product editing API is not available yet.')
   }
 
-  // Create product and optionally create its stock record
   async function handleSubmit(e) {
     e.preventDefault()
 
     try {
       setError('')
 
-      // Create product
       const product = await apiRequest('/products', {
         method: 'POST',
         body: JSON.stringify({
           name: form.name,
           sku: form.sku,
-          category_id: form.category
-            ? Number(form.category)
-            : null,
+          category_id: form.category ? Number(form.category) : null,
           unit: form.unit,
           reorder_level: Number(form.minStock || 0)
         })
       })
 
-      // Create stock record if quantity and location are provided
       if (form.stock !== '' && form.location) {
         await apiRequest('/stock', {
           method: 'POST',
@@ -178,7 +274,6 @@ function App() {
       setEditingId(null)
 
       await loadData()
-
       alert('Product added successfully!')
 
     } catch (err) {
@@ -187,7 +282,6 @@ function App() {
     }
   }
 
-  // Delete is not supported by the current backend API
   function deleteProduct() {
     alert('Product deletion API is not available yet.')
   }
@@ -215,6 +309,68 @@ function App() {
       items: [{ name: 'Settings', icon: '⚙' }],
     },
   ]
+
+  if (authLoading) {
+    return (
+      <div className="auth-shell">
+        <div className="auth-card">
+          <h2>Loading session...</h2>
+        </div>
+      </div>
+    )
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <div className="auth-shell">
+        <div className="auth-card">
+          <div className="auth-brand">
+            <div className="brand-icon">S</div>
+            <div>
+              <p className="auth-kicker">STOCKSENSE</p>
+              <h1>Sign in</h1>
+            </div>
+          </div>
+
+          <form className="auth-form" onSubmit={handleLogin}>
+            <label>
+              <span>Email</span>
+              <input
+                type="email"
+                value={loginForm.email}
+                onChange={event =>
+                  setLoginForm(current => ({ ...current, email: event.target.value }))
+                }
+                placeholder="user@company.com"
+                required
+              />
+            </label>
+
+            <label>
+              <span>Password</span>
+              <input
+                type="password"
+                value={loginForm.password}
+                onChange={event =>
+                  setLoginForm(current => ({ ...current, password: event.target.value }))
+                }
+                placeholder="Enter your password"
+                required
+              />
+            </label>
+
+            {loginState.error && (
+              <p className="auth-error">{loginState.error}</p>
+            )}
+
+            <button className="primary-button auth-submit" type="submit" disabled={loginState.loading}>
+              {loginState.loading ? 'Signing in...' : 'Sign in'}
+            </button>
+          </form>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="app-layout">
@@ -253,9 +409,7 @@ function App() {
                 {item.name}
 
                 {item.name === 'Products' && (
-                  <span className="nav-count">
-                    {products.length}
-                  </span>
+                  <span className="nav-count">{products.length}</span>
                 )}
               </button>
             ))}
@@ -273,21 +427,33 @@ function App() {
           </div>
 
           <div className="profile">
-            <div className="profile-avatar">DV</div>
+            <div className="profile-avatar">{getInitials(currentUser?.name, currentUser?.email)}</div>
             <div className="profile-info">
-              <strong>Divya Varakala</strong>
-              <span>Inventory Manager</span>
+              <strong>{currentUser?.name || 'User'}</strong>
+              <span>{currentUser?.role || currentUser?.email || 'Workspace User'}</span>
             </div>
 
-            <button
-              className="profile-menu"
-              aria-label="Profile menu"
-              onClick={() =>
-                alert('Profile and logout will be connected to authentication.')
-              }
-            >
-              ⋯
-            </button>
+            <div className="profile-menu-wrapper">
+              <button
+                className="profile-menu"
+                aria-label="Profile menu"
+                onClick={() => setShowProfileMenu(current => !current)}
+              >
+                ⋯
+              </button>
+
+              {showProfileMenu && (
+                <div className="profile-dropdown">
+                  <div className="profile-dropdown-header">
+                    <strong>{currentUser?.name || 'User'}</strong>
+                    <span>{currentUser?.email || 'No email available'}</span>
+                  </div>
+                  <button type="button" onClick={handleLogout}>
+                    Logout
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </aside>
@@ -308,37 +474,29 @@ function App() {
             <button
               className="icon-button"
               aria-label="Notifications"
-              onClick={() =>
-                alert('Notifications will be connected later.')
-              }
+              onClick={() => alert('Notifications will be connected later.')}
             >
               🔔
             </button>
 
-            <div className="topbar-avatar">DV</div>
+            <div className="topbar-avatar">{getInitials(currentUser?.name, currentUser?.email)}</div>
           </div>
         </header>
 
         <div className="page-content">
-
           {loading ? (
             <div className="placeholder-page">
               <h2>Loading StockSense data...</h2>
             </div>
-
           ) : error ? (
             <div className="placeholder-page">
               <h2>Unable to load backend data</h2>
               <p>{error}</p>
 
-              <button
-                className="secondary-button"
-                onClick={loadData}
-              >
+              <button className="secondary-button" onClick={loadData}>
                 Retry
               </button>
             </div>
-
           ) : page === 'Dashboard' ? (
             <Dashboard
               totalStock={totalStock}
@@ -353,7 +511,6 @@ function App() {
               }}
               onViewMovements={() => setPage('Move History')}
             />
-
           ) : page === 'Products' ? (
             <Products
               products={displayProducts}
@@ -374,19 +531,14 @@ function App() {
               categories={categories}
               locations={locations}
             />
-
           ) : page === 'Receipts' ? (
             <Receipts />
-
           ) : page === 'Delivery Orders' ? (
             <Deliveries />
-
           ) : page === 'Internal Transfers' ? (
             <Transfers />
-
           ) : page === 'Stock Adjustments' ? (
             <StockAdjustment />
-
           ) : (
             <div className="placeholder-page">
               <div className="placeholder-icon">▦</div>
@@ -396,15 +548,11 @@ function App() {
                 This module will be implemented by the assigned team member.
               </p>
 
-              <button
-                className="secondary-button"
-                onClick={() => setPage('Dashboard')}
-              >
+              <button className="secondary-button" onClick={() => setPage('Dashboard')}>
                 ← Back to Dashboard
               </button>
             </div>
           )}
-
         </div>
       </main>
     </div>
