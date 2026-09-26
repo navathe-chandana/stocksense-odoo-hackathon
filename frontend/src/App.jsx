@@ -1,3 +1,4 @@
+
 import { useState } from 'react'
 import './App.css'
 import Receipts from './pages/Receipts'
@@ -182,7 +183,6 @@ function App() {
         </header>
 
         <div className="page-content">
-          {/* ── Dashboard ──────────────────────────────────────────────── */}
           {page === 'Dashboard' ? (
             <>
               <div className="page-heading">
@@ -315,8 +315,6 @@ function App() {
                 </div>
               </div>
             </>
-
-          /* ── Products ──────────────────────────────────────────────── */
           ) : page === 'Products' ? (
             <>
               <div className="page-heading">
@@ -424,24 +422,14 @@ function App() {
                 </div>
               )}
             </>
-
-          /* ── Friend 2: Receipts ─────────────────────────────────────── */
           ) : page === 'Receipts' ? (
             <Receipts />
-
-          /* ── Friend 2: Delivery Orders ─────────────────────────────── */
           ) : page === 'Delivery Orders' ? (
             <Deliveries />
-
-          /* ── Friend 2: Internal Transfers ──────────────────────────── */
           ) : page === 'Internal Transfers' ? (
             <Transfers />
-
-          /* ── Friend 3: Stock Adjustments ───────────────────────────── */
           ) : page === 'Stock Adjustments' ? (
             <StockAdjustment />
-
-          /* ── Placeholder for all other pages ───────────────────────── */
           ) : (
             <div className="placeholder-page">
               <div className="placeholder-icon">▦</div>
