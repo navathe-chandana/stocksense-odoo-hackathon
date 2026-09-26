@@ -3,7 +3,7 @@ function Dashboard({
   products,
   lowStock,
   outOfStock,
-  initialMovements,
+  initialMovements = [],
   dashboardData,
   onAddProduct,
   onViewMovements,
@@ -63,7 +63,9 @@ function Dashboard({
           </div>
           <h3>{lowStock}</h3>
           <p className="stat-caption">Items below minimum stock</p>
-          <div className="stat-footer orange-text">Needs attention</div>
+          <div className="stat-footer orange-text">
+            Needs attention
+          </div>
         </div>
 
         <div className="stat-card">
@@ -73,7 +75,9 @@ function Dashboard({
           </div>
           <h3>{outOfStock}</h3>
           <p className="stat-caption">Products with zero stock</p>
-          <div className="stat-footer red-text">Restocking required</div>
+          <div className="stat-footer red-text">
+            Restocking required
+          </div>
         </div>
 
         <div className="stat-card">
@@ -105,7 +109,7 @@ function Dashboard({
             <span>Internal Transfers</span>
             <span className="stat-icon teal">⇄</span>
           </div>
-          <h3><h3>{dashboardData?.pending_transfers ?? 0}</h3></h3>
+          <h3>{dashboardData?.pending_transfers ?? 0}</h3>
           <p className="stat-caption">Transfers scheduled</p>
           <div className="stat-footer teal-text">
             Across warehouses
@@ -133,32 +137,36 @@ function Dashboard({
                 <th>PRODUCT</th>
                 <th>OPERATION</th>
                 <th>QUANTITY</th>
-                <th>STATUS</th>
+                <th>REFERENCE TYPE</th>
               </tr>
             </thead>
 
             <tbody>
-              {initialMovements.map((m) => (
-                <tr key={m.id}>
-                  <td className="reference">{m.id}</td>
-                  <td>{m.product}</td>
-                  <td>{m.type}</td>
-                  <td className="quantity">{m.quantity}</td>
-                  <td>
-                    <span
-                      className={`status-badge ${m.status.toLowerCase()}`}
-                    >
-                      {m.status}
-                    </span>
+              {initialMovements.length > 0 ? (
+                initialMovements.slice(0, 5).map((m) => (
+                  <tr key={m.id}>
+                    <td className="reference">
+                      {m.reference_id ?? m.id}
+                    </td>
+                    <td>{m.product_name}</td>
+                    <td>{m.movement_type}</td>
+                    <td className="quantity">{m.quantity}</td>
+                    <td>{m.reference_type ?? '-'}</td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan="5" style={{ textAlign: 'center' }}>
+                    No stock movements found.
                   </td>
                 </tr>
-              ))}
+              )}
             </tbody>
           </table>
         </div>
       </div>
     </>
-  );
+  )
 }
 
-export default Dashboard;
+export default Dashboard
