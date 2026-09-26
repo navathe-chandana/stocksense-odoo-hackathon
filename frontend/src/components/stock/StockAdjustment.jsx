@@ -1,18 +1,12 @@
 import { useEffect, useState } from "react";
-import {
-  getProducts,
-  getLocations,
-  getStock,
-} from "../../mock/operationsData";
-import {
-  getCurrentStock,
-  recordAdjustment,
-} from "./stockLedgerStore";
 import StockLedger from "./StockLedger";
+
+const API_BASE_URL = "http://localhost:5000/api";
 
 function StockAdjustment() {
   const [products, setProducts] = useState([]);
   const [locations, setLocations] = useState([]);
+  const [stockRecords, setStockRecords] = useState([]);
 
   const [selectedProduct, setSelectedProduct] = useState("");
   const [selectedLocation, setSelectedLocation] = useState("");
@@ -20,69 +14,120 @@ function StockAdjustment() {
   const [reason, setReason] = useState("");
 
   const [recordedStock, setRecordedStock] = useState(0);
+
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [loadingData, setLoadingData] = useState(true);
 
   const [showLedger, setShowLedger] = useState(false);
 
-  useEffect(() => {
-    async function loadData() {
-      try {
-        const [productData, locationData] = await Promise.all([
-          getProducts(),
-          getLocations(),
+  // --------------------------------------------------
+  // LOAD PRODUCTS, LOCATIONS AND CURRENT STOCK
+  // --------------------------------------------------
+  async function loadInventoryData() {
+    try {
+      setLoadingData(true);
+      setError("");
+
+      const [productsResponse, locationsResponse, stockResponse] =
+        await Promise.all([
+          fetch(`${API_BASE_URL}/products`),
+          fetch(`${API_BASE_URL}/locations`),
+          fetch(`${API_BASE_URL}/stock`),
         ]);
 
-        setProducts(productData);
-        setLocations(locationData);
-
-        if (productData.length > 0) {
-          setSelectedProduct(String(productData[0].id));
-        }
-
-        if (locationData.length > 0) {
-          setSelectedLocation(String(locationData[0].id));
-        }
-      } catch (err) {
-        setError("Unable to load inventory data.");
+      if (!productsResponse.ok) {
+        throw new Error("Failed to load products.");
       }
-    }
 
-    loadData();
-  }, []);
+      if (!locationsResponse.ok) {
+        throw new Error("Failed to load locations.");
+      }
+
+      if (!stockResponse.ok) {
+        throw new Error("Failed to load stock.");
+      }
+
+      const productData = await productsResponse.json();
+      const locationData = await locationsResponse.json();
+      const stockData = await stockResponse.json();
+
+      setProducts(productData);
+      setLocations(locationData);
+      setStockRecords(stockData);
+
+      // Select first product/location automatically
+      if (productData.length > 0 && !selectedProduct) {
+        setSelectedProduct(String(productData[0].id));
+      }
+
+      if (locationData.length > 0 && !selectedLocation) {
+        setSelectedLocation(String(locationData[0].id));
+      }
+    } catch (err) {
+      console.error("Inventory loading error:", err);
+      setError(
+        err.message ||
+          "Unable to load inventory data. Make sure the backend is running."
+      );
+    } finally {
+      setLoadingData(false);
+    }
+  }
 
   useEffect(() => {
-    if (!selectedProduct || !selectedLocation) return;
+    loadInventoryData();
+  }, []);
+
+  // --------------------------------------------------
+  // UPDATE RECORDED STOCK WHEN PRODUCT/LOCATION CHANGES
+  // --------------------------------------------------
+  useEffect(() => {
+    if (!selectedProduct || !selectedLocation) {
+      return;
+    }
 
     const productId = Number(selectedProduct);
     const locationId = Number(selectedLocation);
 
-    const originalStock = getStock(productId, locationId);
-
-    const currentStock = getCurrentStock(
-      productId,
-      locationId,
-      originalStock
+    const stockRecord = stockRecords.find(
+      (stock) =>
+        Number(stock.product_id) === productId &&
+        Number(stock.location_id) === locationId
     );
+
+    const currentStock = stockRecord
+      ? Number(stockRecord.quantity)
+      : 0;
 
     setRecordedStock(currentStock);
     setCountedStock(String(currentStock));
-  }, [selectedProduct, selectedLocation]);
+  }, [selectedProduct, selectedLocation, stockRecords]);
 
+  // --------------------------------------------------
+  // SELECTED PRODUCT / LOCATION
+  // --------------------------------------------------
   const selectedProductData = products.find(
-    (product) => product.id === Number(selectedProduct)
+    (product) => Number(product.id) === Number(selectedProduct)
   );
 
   const selectedLocationData = locations.find(
-    (location) => location.id === Number(selectedLocation)
+    (location) => Number(location.id) === Number(selectedLocation)
   );
 
+  // --------------------------------------------------
+  // DIFFERENCE
+  // --------------------------------------------------
   const difference =
     countedStock === ""
       ? 0
       : Number(countedStock) - Number(recordedStock);
 
-  function handleSubmit(event) {
+  // --------------------------------------------------
+  // SUBMIT STOCK ADJUSTMENT
+  // --------------------------------------------------
+  async function handleSubmit(event) {
     event.preventDefault();
 
     setError("");
@@ -108,37 +153,110 @@ function StockAdjustment() {
       return;
     }
 
-    const entry = recordAdjustment({
-      productId: Number(selectedProduct),
-      locationId: Number(selectedLocation),
-      productName: selectedProductData?.name || "Unknown Product",
-      locationName: selectedLocationData?.name || "Unknown Location",
-      unit: selectedProductData?.unit || "Units",
-      previousStock: Number(recordedStock),
-      countedStock: Number(countedStock),
-      reason: reason.trim(),
-    });
+    setLoading(true);
 
-    setRecordedStock(Number(countedStock));
-    setMessage(
-      `${entry.id} saved successfully. Stock updated from ${entry.previousStock} to ${entry.newStock}.`
-    );
-    setReason("");
+    try {
+      const response = await fetch(`${API_BASE_URL}/adjustments`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          location_id: Number(selectedLocation),
+          product_id: Number(selectedProduct),
+          physical_quantity: Number(countedStock),
+          reason: reason.trim(),
+          created_by: null,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.message || "Failed to create stock adjustment."
+        );
+      }
+
+      const adjustment = data.adjustment;
+
+      setRecordedStock(Number(adjustment.physical_quantity));
+      setCountedStock(String(adjustment.physical_quantity));
+      setReason("");
+
+      setMessage(
+        `ADJ/${String(adjustment.id).padStart(3, "0")} saved successfully. ` +
+          `Stock updated from ${adjustment.system_quantity} to ${adjustment.physical_quantity}.`
+      );
+
+      // Refresh stock from database
+      await loadInventoryData();
+    } catch (err) {
+      console.error("Stock adjustment error:", err);
+
+      setError(
+        err.message ||
+          "Failed to save stock adjustment. Please try again."
+      );
+    } finally {
+      setLoading(false);
+    }
   }
 
+  // --------------------------------------------------
+  // LEDGER VIEW
+  // --------------------------------------------------
   if (showLedger) {
     return (
-      <StockLedger onBack={() => setShowLedger(false)} />
+      <StockLedger
+        onBack={() => setShowLedger(false)}
+      />
     );
   }
 
+  // --------------------------------------------------
+  // LOADING
+  // --------------------------------------------------
+  if (loadingData) {
+    return (
+      <div className="ops-module">
+        <div className="page-heading">
+          <div>
+            <p className="eyebrow">INVENTORY OPERATIONS</p>
+            <h1>Stock Adjustment</h1>
+            <p className="page-subtitle">
+              Fix mismatches between recorded stock and physical count.
+            </p>
+          </div>
+        </div>
+
+        <div className="table-card">
+          <div
+            style={{
+              padding: "40px",
+              textAlign: "center",
+              color: "#8993a6",
+            }}
+          >
+            Loading inventory data...
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // --------------------------------------------------
+  // UI
+  // --------------------------------------------------
   return (
     <div className="ops-module">
 
       <div className="page-heading">
         <div>
           <p className="eyebrow">INVENTORY OPERATIONS</p>
+
           <h1>Stock Adjustment</h1>
+
           <p className="page-subtitle">
             Fix mismatches between recorded stock and physical count.
           </p>
@@ -167,6 +285,7 @@ function StockAdjustment() {
             padding: "12px 16px",
             borderRadius: "8px",
             fontSize: "13px",
+            marginBottom: "18px",
           }}
         >
           ✓ {message}
@@ -210,6 +329,7 @@ function StockAdjustment() {
 
           <form onSubmit={handleSubmit}>
 
+            {/* PRODUCT */}
             <div className="ops-form-group">
               <label>Product</label>
 
@@ -220,6 +340,10 @@ function StockAdjustment() {
                   setSelectedProduct(event.target.value)
                 }
               >
+                <option value="">
+                  Select a product...
+                </option>
+
                 {products.map((product) => (
                   <option
                     key={product.id}
@@ -229,8 +353,14 @@ function StockAdjustment() {
                   </option>
                 ))}
               </select>
+              {products.length === 0 && (
+                <p style={{ margin: "6px 0 0", color: "#8993a6", fontSize: "12px" }}>
+                  No products are available for adjustment.
+                </p>
+              )}
             </div>
 
+            {/* LOCATION */}
             <div className="ops-form-group">
               <label>Location</label>
 
@@ -241,17 +371,30 @@ function StockAdjustment() {
                   setSelectedLocation(event.target.value)
                 }
               >
+                <option value="">
+                  Select a location...
+                </option>
+
                 {locations.map((location) => (
                   <option
                     key={location.id}
                     value={location.id}
                   >
-                    {location.name} ({location.type})
+                    {location.name}
+                    {location.warehouse_name
+                      ? ` (${location.warehouse_name})`
+                      : ""}
                   </option>
                 ))}
               </select>
+              {locations.length === 0 && (
+                <p style={{ margin: "6px 0 0", color: "#8993a6", fontSize: "12px" }}>
+                  No locations are available for adjustment.
+                </p>
+              )}
             </div>
 
+            {/* STOCK COUNTS */}
             <div className="form-row">
 
               <div className="ops-form-group">
@@ -281,6 +424,7 @@ function StockAdjustment() {
 
             </div>
 
+            {/* DIFFERENCE */}
             <div
               style={{
                 background: "#f7f8fc",
@@ -313,8 +457,8 @@ function StockAdjustment() {
                       difference > 0
                         ? "#22966c"
                         : difference < 0
-                          ? "#d65e65"
-                          : "#59667d",
+                        ? "#d65e65"
+                        : "#59667d",
                   }}
                 >
                   {difference > 0 ? "+" : ""}
@@ -324,6 +468,7 @@ function StockAdjustment() {
               </div>
             </div>
 
+            {/* REASON */}
             <div className="ops-form-group">
               <label>Reason</label>
 
@@ -338,6 +483,7 @@ function StockAdjustment() {
               />
             </div>
 
+            {/* ACTIONS */}
             <div
               style={{
                 display: "flex",
@@ -348,8 +494,9 @@ function StockAdjustment() {
               <button
                 type="submit"
                 className="primary-button"
+                disabled={loading || products.length === 0 || locations.length === 0}
               >
-                ✓ Update Stock
+                {loading ? "Updating..." : "✓ Update Stock"}
               </button>
 
               <button
@@ -361,6 +508,7 @@ function StockAdjustment() {
                   setError("");
                   setMessage("");
                 }}
+                disabled={loading}
               >
                 Reset
               </button>

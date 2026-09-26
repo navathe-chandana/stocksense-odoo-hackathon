@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import {
-  getReceipts, getProducts, mockCreateReceipt,
+  getReceipts, getProducts, getLocations, mockCreateReceipt,
   getReceiptById, mockValidateReceipt
 } from '../mock/operationsData';
 
@@ -31,7 +31,7 @@ function ReceiptList({ setSubPage }) {
             <thead>
               <tr>
                 <th>ID</th>
-                <th>SUPPLIER</th>
+                <th>LOCATION</th>
                 <th>STATUS</th>
                 <th>DATE</th>
                 <th>ACTIONS</th>
@@ -41,9 +41,9 @@ function ReceiptList({ setSubPage }) {
               {receipts.map(r => (
                 <tr key={r.id}>
                   <td className="reference">REC/{String(r.id).padStart(3, '0')}</td>
-                  <td>{r.supplier_name}</td>
+                  <td>{r.location_name || `Location #${r.location_id}`}</td>
                   <td>
-                    <span className={`status-badge ${r.status === 'validated' ? 'done' : r.status === 'cancelled' ? 'cancelled' : 'waiting'}`}>
+                    <span className={`status-badge ${r.status === 'validated' ? 'done' : 'waiting'}`}>
                       {r.status}
                     </span>
                   </td>
@@ -68,27 +68,32 @@ function ReceiptList({ setSubPage }) {
 
 // ─── Create Receipt ─────────────────────────────────────────────────────────
 function CreateReceipt({ setSubPage }) {
-  const [supplier, setSupplier] = useState('');
+  const [locations, setLocations] = useState([]);
   const [products, setProducts] = useState([]);
+  const [selectedLocation, setSelectedLocation] = useState('');
   const [selectedProduct, setSelectedProduct] = useState('');
   const [quantity, setQuantity] = useState(1);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    getLocations().then(setLocations).catch(console.error);
     getProducts().then(setProducts).catch(console.error);
   }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
-    if (!supplier.trim()) return setError('Supplier name is required');
+    if (!selectedLocation) return setError('Please select a location');
     if (!selectedProduct) return setError('Please select a product');
     if (quantity <= 0) return setError('Quantity must be greater than 0');
 
     setLoading(true);
     try {
-      await mockCreateReceipt(supplier, [{ product_id: parseInt(selectedProduct), quantity: parseInt(quantity) }]);
+      await mockCreateReceipt({
+        location_id: Number(selectedLocation),
+        items: [{ product_id: Number(selectedProduct), quantity: Number(quantity) }]
+      });
       setSubPage('list');
     } catch (err) {
       setError(err.message);
@@ -112,14 +117,11 @@ function CreateReceipt({ setSubPage }) {
           {error && <div className="ops-error">{error}</div>}
           <form onSubmit={handleSubmit}>
             <div className="ops-form-group">
-              <label>Supplier Name</label>
-              <input
-                type="text"
-                className="ops-input"
-                value={supplier}
-                onChange={e => setSupplier(e.target.value)}
-                placeholder="e.g. Acme Corp"
-              />
+              <label>Location</label>
+              <select className="ops-input" value={selectedLocation} onChange={e => setSelectedLocation(e.target.value)}>
+                <option value="">Select a location...</option>
+                {locations.map(l => <option key={l.id} value={l.id}>{l.name} {l.warehouse_name ? `(${l.warehouse_name})` : ''}</option>)}
+              </select>
             </div>
             <div className="ops-form-group">
               <label>Product</label>
@@ -196,7 +198,7 @@ function ReceiptDetails({ receiptId, setSubPage }) {
           <h1>Receipt REC/{String(receipt.id).padStart(3, '0')}</h1>
         </div>
         <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-          <span className={`status-badge ${receipt.status === 'validated' ? 'done' : receipt.status === 'cancelled' ? 'cancelled' : 'waiting'}`} style={{ fontSize: 14, padding: '6px 14px' }}>
+          <span className={`status-badge ${receipt.status === 'validated' ? 'done' : 'waiting'}`} style={{ fontSize: 14, padding: '6px 14px' }}>
             {receipt.status.toUpperCase()}
           </span>
           <button className="secondary-button" onClick={() => setSubPage('list')}>← Back</button>
@@ -205,9 +207,8 @@ function ReceiptDetails({ receiptId, setSubPage }) {
 
       <div className="table-card" style={{ marginBottom: 20 }}>
         <div style={{ padding: '20px 24px' }}>
-          <p><strong>Supplier:</strong> {receipt.supplier_name}</p>
+          <p><strong>Location:</strong> {receipt.location_name || `Location #${receipt.location_id}`}</p>
           <p><strong>Created:</strong> {new Date(receipt.created_at).toLocaleString()}</p>
-          {receipt.validated_at && <p><strong>Validated:</strong> {new Date(receipt.validated_at).toLocaleString()}</p>}
         </div>
       </div>
 
@@ -221,7 +222,7 @@ function ReceiptDetails({ receiptId, setSubPage }) {
               <tr><th>PRODUCT</th><th>QUANTITY</th></tr>
             </thead>
             <tbody>
-              {receipt.lines && receipt.lines.map((line, idx) => (
+              {receipt.items && receipt.items.map((line, idx) => (
                 <tr key={idx}>
                   <td>{getProductName(line.product_id)}</td>
                   <td className="quantity">{line.quantity}</td>
