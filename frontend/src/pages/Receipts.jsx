@@ -1,184 +1,256 @@
-import { Routes, Route, Link, useNavigate, useParams } from 'react-router-dom';
 import { useState, useEffect } from 'react';
-import { getReceipts, getProducts, mockCreateReceipt, getReceiptById, mockValidateReceipt } from '../mock/operationsData';
+import {
+  getReceipts, getProducts, mockCreateReceipt,
+  getReceiptById, mockValidateReceipt
+} from '../mock/operationsData';
 
-function ReceiptList() {
-    const [receipts, setReceipts] = useState([]);
+// ─── Receipt List ───────────────────────────────────────────────────────────
+function ReceiptList({ setSubPage }) {
+  const [receipts, setReceipts] = useState([]);
 
-    useEffect(() => {
-        getReceipts().then(setReceipts).catch(console.error);
-    }, []);
+  useEffect(() => {
+    getReceipts().then(setReceipts).catch(console.error);
+  }, []);
 
-    return (
-        <div className="card">
-            <h2>Receipts</h2>
-            <Link to="/receipts/create" className="btn">Create New Receipt</Link>
-            <table className="table-container" style={{ marginTop: '20px' }}>
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Supplier</th>
-                        <th>Status</th>
-                        <th>Date</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {receipts.map(r => (
-                        <tr key={r.id}>
-                            <td>{r.id}</td>
-                            <td>{r.supplier_name}</td>
-                            <td><span className={`badge badge-${r.status}`}>{r.status}</span></td>
-                            <td>{new Date(r.created_at).toLocaleString()}</td>
-                            <td>
-                                <Link to={`/receipts/${r.id}`} className="btn btn-secondary" style={{ marginRight: '10px' }}>View</Link>
-                            </td>
-                        </tr>
-                    ))}
-                    {receipts.length === 0 && <tr><td colSpan="5">No receipts found.</td></tr>}
-                </tbody>
-            </table>
+  return (
+    <div className="ops-module">
+      <div className="page-heading">
+        <div>
+          <p className="eyebrow">INCOMING STOCK</p>
+          <h1>Receipts</h1>
+          <p className="page-subtitle">Manage incoming stock receipts from suppliers.</p>
         </div>
-    );
+        <button className="primary-button" onClick={() => setSubPage('create')}>
+          ＋ Create Receipt
+        </button>
+      </div>
+
+      <div className="table-card">
+        <div className="table-responsive">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>SUPPLIER</th>
+                <th>STATUS</th>
+                <th>DATE</th>
+                <th>ACTIONS</th>
+              </tr>
+            </thead>
+            <tbody>
+              {receipts.map(r => (
+                <tr key={r.id}>
+                  <td className="reference">REC/{String(r.id).padStart(3, '0')}</td>
+                  <td>{r.supplier_name}</td>
+                  <td>
+                    <span className={`status-badge ${r.status === 'validated' ? 'done' : r.status === 'cancelled' ? 'cancelled' : 'waiting'}`}>
+                      {r.status}
+                    </span>
+                  </td>
+                  <td>{new Date(r.created_at).toLocaleDateString()}</td>
+                  <td>
+                    <button className="ops-view-btn" onClick={() => setSubPage(`view-${r.id}`)}>
+                      View
+                    </button>
+                  </td>
+                </tr>
+              ))}
+              {receipts.length === 0 && (
+                <tr><td colSpan="5" className="empty-state">No receipts found. Create your first receipt.</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
 }
 
-function CreateReceipt() {
-    const navigate = useNavigate();
-    const [supplier, setSupplier] = useState('');
-    const [products, setProducts] = useState([]);
-    const [selectedProduct, setSelectedProduct] = useState('');
-    const [quantity, setQuantity] = useState(1);
-    const [error, setError] = useState(null);
+// ─── Create Receipt ─────────────────────────────────────────────────────────
+function CreateReceipt({ setSubPage }) {
+  const [supplier, setSupplier] = useState('');
+  const [products, setProducts] = useState([]);
+  const [selectedProduct, setSelectedProduct] = useState('');
+  const [quantity, setQuantity] = useState(1);
+  const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(false);
 
-    useEffect(() => {
-        getProducts().then(setProducts).catch(console.error);
-    }, []);
+  useEffect(() => {
+    getProducts().then(setProducts).catch(console.error);
+  }, []);
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        setError(null);
-        if (!supplier) return setError('Supplier name is required');
-        if (!selectedProduct) return setError('Please select a product');
-        if (quantity <= 0) return setError('Quantity must be greater than 0');
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError(null);
+    if (!supplier.trim()) return setError('Supplier name is required');
+    if (!selectedProduct) return setError('Please select a product');
+    if (quantity <= 0) return setError('Quantity must be greater than 0');
 
-        try {
-            await mockCreateReceipt(supplier, [{ product_id: parseInt(selectedProduct), quantity: parseInt(quantity) }]);
-            navigate('/receipts');
-        } catch (err) {
-            setError(err.message);
-        }
-    };
+    setLoading(true);
+    try {
+      await mockCreateReceipt(supplier, [{ product_id: parseInt(selectedProduct), quantity: parseInt(quantity) }]);
+      setSubPage('list');
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    return (
-        <div className="card">
-            <h2>Create Receipt</h2>
-            {error && <div className="error-message">{error}</div>}
-            <form onSubmit={handleSubmit}>
-                <div className="form-group">
-                    <label>Supplier Name</label>
-                    <input type="text" className="form-control" value={supplier} onChange={e => setSupplier(e.target.value)} />
-                </div>
-                <div className="form-group">
-                    <label>Product</label>
-                    <select className="form-control" value={selectedProduct} onChange={e => setSelectedProduct(e.target.value)}>
-                        <option value="">Select a product...</option>
-                        {products.map(p => <option key={p.id} value={p.id}>{p.name} ({p.sku})</option>)}
-                    </select>
-                </div>
-                <div className="form-group">
-                    <label>Quantity</label>
-                    <input type="number" className="form-control" min="1" value={quantity} onChange={e => setQuantity(e.target.value)} />
-                </div>
-                <button type="submit" className="btn">Save Draft</button>
-                <button type="button" className="btn btn-secondary" style={{ marginLeft: '10px' }} onClick={() => navigate('/receipts')}>Cancel</button>
-            </form>
+  return (
+    <div className="ops-module">
+      <div className="page-heading">
+        <div>
+          <p className="eyebrow">RECEIPTS</p>
+          <h1>Create Receipt</h1>
         </div>
-    );
-}
+        <button className="secondary-button" onClick={() => setSubPage('list')}>← Back to Receipts</button>
+      </div>
 
-function ReceiptDetails() {
-    const { id } = useParams();
-    const [receipt, setReceipt] = useState(null);
-    const [products, setProducts] = useState([]);
-    const [error, setError] = useState(null);
-
-    const loadData = async () => {
-        try {
-            const r = await getReceiptById(id);
-            if (!r) throw new Error('Receipt not found');
-            setReceipt(r);
-            const p = await getProducts();
-            setProducts(p);
-        } catch (err) {
-            setError(err.message);
-        }
-    };
-
-    useEffect(() => {
-        loadData();
-    }, [id]);
-
-    const handleValidate = async () => {
-        try {
-            await mockValidateReceipt(id);
-            loadData(); // reload data
-        } catch (err) {
-            alert(err.message);
-        }
-    };
-
-    const getProductName = (pid) => {
-        const p = products.find(x => x.id === pid);
-        return p ? `${p.name} (${p.sku})` : pid;
-    };
-
-    if (error) return <div className="error-message">{error}</div>;
-    if (!receipt) return <div>Loading...</div>;
-
-    return (
-        <div className="card">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h2>Receipt #{receipt.id}</h2>
-                <div><span className={`badge badge-${receipt.status}`}>{receipt.status}</span></div>
+      <div className="table-card" style={{ maxWidth: 600 }}>
+        <div style={{ padding: '24px' }}>
+          {error && <div className="ops-error">{error}</div>}
+          <form onSubmit={handleSubmit}>
+            <div className="ops-form-group">
+              <label>Supplier Name</label>
+              <input
+                type="text"
+                className="ops-input"
+                value={supplier}
+                onChange={e => setSupplier(e.target.value)}
+                placeholder="e.g. Acme Corp"
+              />
             </div>
-            <p><strong>Supplier:</strong> {receipt.supplier_name}</p>
-            <p><strong>Created At:</strong> {new Date(receipt.created_at).toLocaleString()}</p>
-            {receipt.validated_at && <p><strong>Validated At:</strong> {new Date(receipt.validated_at).toLocaleString()}</p>}
-            
-            <h3 style={{ marginTop: '30px' }}>Lines</h3>
-            <table className="table-container">
-                <thead>
-                    <tr>
-                        <th>Product</th>
-                        <th>Quantity</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {receipt.lines && receipt.lines.map((line, idx) => (
-                        <tr key={idx}>
-                            <td>{getProductName(line.product_id)}</td>
-                            <td>{line.quantity}</td>
-                        </tr>
-                    ))}
-                </tbody>
-            </table>
-
-            <div style={{ marginTop: '30px' }}>
-                {receipt.status === 'draft' && (
-                    <button className="btn btn-success" onClick={handleValidate}>Validate</button>
-                )}
-                <Link to="/receipts" className="btn btn-secondary" style={{ marginLeft: '10px' }}>Back</Link>
+            <div className="ops-form-group">
+              <label>Product</label>
+              <select className="ops-input" value={selectedProduct} onChange={e => setSelectedProduct(e.target.value)}>
+                <option value="">Select a product...</option>
+                {products.map(p => <option key={p.id} value={p.id}>{p.name} ({p.sku})</option>)}
+              </select>
             </div>
+            <div className="ops-form-group">
+              <label>Quantity</label>
+              <input
+                type="number"
+                className="ops-input"
+                min="1"
+                value={quantity}
+                onChange={e => setQuantity(e.target.value)}
+              />
+            </div>
+            <div style={{ display: 'flex', gap: 12, marginTop: 24 }}>
+              <button type="submit" className="primary-button" disabled={loading}>
+                {loading ? 'Saving...' : 'Save Draft'}
+              </button>
+              <button type="button" className="secondary-button" onClick={() => setSubPage('list')}>Cancel</button>
+            </div>
+          </form>
         </div>
-    );
+      </div>
+    </div>
+  );
 }
 
+// ─── Receipt Details ─────────────────────────────────────────────────────────
+function ReceiptDetails({ receiptId, setSubPage }) {
+  const [receipt, setReceipt] = useState(null);
+  const [products, setProducts] = useState([]);
+  const [error, setError] = useState(null);
+
+  const loadData = async () => {
+    try {
+      const r = await getReceiptById(receiptId);
+      if (!r) throw new Error('Receipt not found');
+      setReceipt({ ...r });
+      const p = await getProducts();
+      setProducts(p);
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  useEffect(() => { loadData(); }, [receiptId]);
+
+  const handleValidate = async () => {
+    try {
+      await mockValidateReceipt(receiptId);
+      loadData();
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  const getProductName = (pid) => {
+    const p = products.find(x => x.id === pid);
+    return p ? `${p.name} (${p.sku})` : `Product #${pid}`;
+  };
+
+  if (error) return <div className="ops-error">{error}</div>;
+  if (!receipt) return <div style={{ padding: 32 }}>Loading...</div>;
+
+  return (
+    <div className="ops-module">
+      <div className="page-heading">
+        <div>
+          <p className="eyebrow">RECEIPTS</p>
+          <h1>Receipt REC/{String(receipt.id).padStart(3, '0')}</h1>
+        </div>
+        <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+          <span className={`status-badge ${receipt.status === 'validated' ? 'done' : receipt.status === 'cancelled' ? 'cancelled' : 'waiting'}`} style={{ fontSize: 14, padding: '6px 14px' }}>
+            {receipt.status.toUpperCase()}
+          </span>
+          <button className="secondary-button" onClick={() => setSubPage('list')}>← Back</button>
+        </div>
+      </div>
+
+      <div className="table-card" style={{ marginBottom: 20 }}>
+        <div style={{ padding: '20px 24px' }}>
+          <p><strong>Supplier:</strong> {receipt.supplier_name}</p>
+          <p><strong>Created:</strong> {new Date(receipt.created_at).toLocaleString()}</p>
+          {receipt.validated_at && <p><strong>Validated:</strong> {new Date(receipt.validated_at).toLocaleString()}</p>}
+        </div>
+      </div>
+
+      <div className="table-card">
+        <div style={{ padding: '16px 24px', borderBottom: '1px solid #eee' }}>
+          <h2 style={{ margin: 0, fontSize: 16 }}>Receipt Lines</h2>
+        </div>
+        <div className="table-responsive">
+          <table>
+            <thead>
+              <tr><th>PRODUCT</th><th>QUANTITY</th></tr>
+            </thead>
+            <tbody>
+              {receipt.lines && receipt.lines.map((line, idx) => (
+                <tr key={idx}>
+                  <td>{getProductName(line.product_id)}</td>
+                  <td className="quantity">{line.quantity}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {receipt.status === 'draft' && (
+        <div style={{ marginTop: 20 }}>
+          <button className="primary-button" onClick={handleValidate}>
+            ✓ Validate Receipt
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Root: Receipts Page ──────────────────────────────────────────────────────
 export default function Receipts() {
-    return (
-        <Routes>
-            <Route path="/" element={<ReceiptList />} />
-            <Route path="/create" element={<CreateReceipt />} />
-            <Route path="/:id" element={<ReceiptDetails />} />
-        </Routes>
-    );
+  const [subPage, setSubPage] = useState('list');
+
+  if (subPage === 'create') return <CreateReceipt setSubPage={setSubPage} />;
+  if (subPage.startsWith('view-')) {
+    const id = parseInt(subPage.replace('view-', ''));
+    return <ReceiptDetails receiptId={id} setSubPage={setSubPage} />;
+  }
+  return <ReceiptList setSubPage={setSubPage} />;
 }
