@@ -9,7 +9,7 @@ const warehouseRoutes = require("./routes/warehouseRoutes");
 const locationRoutes = require("./routes/locationRoutes");
 const stockRoutes = require("./routes/stockRoutes");
 const receiptRoutes = require("./routes/receiptRoutes");
-
+const deliveryRoutes = require("./routes/deliveryRoutes");
 const app = express();
 
 app.use(cors());
@@ -21,6 +21,7 @@ app.use("/api/warehouses", warehouseRoutes);
 app.use("/api/locations", locationRoutes);
 app.use("/api/stock", stockRoutes);
 app.use("/api/receipts", receiptRoutes);
+app.use("/api/deliveries", deliveryRoutes);
 // app.get("/test", (req, res) => {
 //   res.json({ message: "Server route is working" });
 // });
