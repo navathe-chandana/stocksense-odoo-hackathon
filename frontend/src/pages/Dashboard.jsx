@@ -4,6 +4,7 @@ function Dashboard({
   lowStock,
   outOfStock,
   initialMovements,
+  dashboardData,
   onAddProduct,
   onViewMovements,
 }) {
@@ -80,7 +81,7 @@ function Dashboard({
             <span>Pending Receipts</span>
             <span className="stat-icon blue">↓</span>
           </div>
-          <h3>3</h3>
+          <h3>{dashboardData?.pending_receipts ?? 0}</h3>
           <p className="stat-caption">Incoming stock orders</p>
           <div className="stat-footer blue-text">
             Awaiting validation
@@ -92,7 +93,7 @@ function Dashboard({
             <span>Pending Deliveries</span>
             <span className="stat-icon green">↑</span>
           </div>
-          <h3>5</h3>
+          <h3>{dashboardData?.pending_deliveries ?? 0}</h3>
           <p className="stat-caption">Outgoing stock orders</p>
           <div className="stat-footer green-text">
             Ready for dispatch
@@ -104,7 +105,7 @@ function Dashboard({
             <span>Internal Transfers</span>
             <span className="stat-icon teal">⇄</span>
           </div>
-          <h3>2</h3>
+          <h3><h3>{dashboardData?.pending_transfers ?? 0}</h3></h3>
           <p className="stat-caption">Transfers scheduled</p>
           <div className="stat-footer teal-text">
             Across warehouses

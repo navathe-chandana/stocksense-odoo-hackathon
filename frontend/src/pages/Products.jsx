@@ -15,6 +15,8 @@ function Products({
   form,
   setForm,
   handleSubmit,
+  categories = [],
+  locations = [],
 }) {
   return (
     <>
@@ -91,12 +93,17 @@ function Products({
                       {p.name}
                       <small>{p.unit}</small>
                     </td>
+
                     <td className="reference">{p.sku}</td>
-                    <td>{p.category}</td>
+
+                    <td>{p.category || '-'}</td>
+
                     <td className="quantity">
                       {p.stock} {p.unit}
                     </td>
+
                     <td>{p.location}</td>
+
                     <td>
                       <span
                         className={`status-badge ${
@@ -110,6 +117,7 @@ function Products({
                         {status}
                       </span>
                     </td>
+
                     <td>
                       <div className="action-buttons">
                         <button
@@ -118,6 +126,7 @@ function Products({
                         >
                           ✎
                         </button>
+
                         <button
                           onClick={() => deleteProduct(p.id)}
                           title="Delete product"
@@ -188,14 +197,23 @@ function Products({
 
             <label>
               Category
-              <input
-                required
+              <select
                 value={form.category}
                 onChange={(e) =>
                   setForm({ ...form, category: e.target.value })
                 }
-                placeholder="e.g. Raw Materials"
-              />
+              >
+                <option value="">Select Category (Optional)</option>
+
+                {categories.map((category) => (
+                  <option
+                    key={category.id}
+                    value={String(category.id)}
+                  >
+                    {category.name}
+                  </option>
+                ))}
+              </select>
             </label>
 
             <div className="form-row">
@@ -212,6 +230,7 @@ function Products({
                   <option>Liters</option>
                   <option>Meters</option>
                   <option>Boxes</option>
+                  <option>Pieces</option>
                 </select>
               </label>
 
@@ -245,13 +264,24 @@ function Products({
 
               <label>
                 Location
-                <input
+                <select
                   required
                   value={form.location}
                   onChange={(e) =>
                     setForm({ ...form, location: e.target.value })
                   }
-                />
+                >
+                  <option value="">Select Location</option>
+
+                  {locations.map((location) => (
+                    <option
+                      key={location.id}
+                      value={String(location.id)}
+                    >
+                      {location.name} ({location.warehouse_name})
+                    </option>
+                  ))}
+                </select>
               </label>
             </div>
 
