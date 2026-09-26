@@ -218,6 +218,143 @@
   border: 0;
   color: #8a94a6;
   font-size: 22px;
+  cursor: pointer;
+}
+
+.profile-menu-wrapper {
+  position: relative;
+  margin-left: auto;
+}
+
+.profile-dropdown {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 10px);
+  width: 180px;
+  background: #fff;
+  border: 1px solid #edf0f5;
+  border-radius: 10px;
+  box-shadow: 0 12px 28px rgba(22, 30, 52, 0.12);
+  padding: 10px;
+  z-index: 2;
+}
+
+.profile-dropdown-header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 8px 12px;
+  border-bottom: 1px solid #edf0f5;
+  margin-bottom: 8px;
+}
+
+.profile-dropdown-header strong {
+  font-size: 12px;
+  color: #293349;
+}
+
+.profile-dropdown-header span {
+  font-size: 10px;
+  color: #8b95a7;
+}
+
+.profile-dropdown button {
+  width: 100%;
+  border: 0;
+  background: #f3f5ff;
+  color: #4f63df;
+  border-radius: 8px;
+  padding: 9px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.auth-shell {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, #eef2ff 0%, #f7f9ff 45%, #eff7ff 100%);
+  padding: 24px;
+}
+
+.auth-card {
+  width: min(100%, 420px);
+  background: #fff;
+  border: 1px solid #edf0f5;
+  border-radius: 18px;
+  box-shadow: 0 20px 45px rgba(31, 41, 55, 0.08);
+  padding: 32px 28px;
+}
+
+.auth-brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.auth-kicker {
+  margin: 0 0 4px;
+  color: #74819a;
+  font-size: 10px;
+  letter-spacing: 1.2px;
+  font-weight: 700;
+}
+
+.auth-card h1 {
+  margin: 0;
+  font-size: 28px;
+  color: #202b45;
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.auth-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 12px;
+  color: #46536d;
+  font-weight: 600;
+}
+
+.auth-form input {
+  border: 1px solid #dfe5f2;
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: 14px;
+  color: #212d44;
+  background: #fff;
+}
+
+.auth-form input:focus {
+  outline: 2px solid rgba(79, 99, 223, 0.18);
+  border-color: #4f63df;
+}
+
+.auth-error {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #fff1f2;
+  color: #b42318;
+  border: 1px solid #fecdd3;
+  font-size: 12px;
+}
+
+.auth-submit {
+  width: 100%;
+  margin-top: 10px;
+}
+
+.primary-button:disabled {
+  opacity: 0.75;
+  cursor: wait;
 }
 
 /* Main layout */
