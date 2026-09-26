@@ -11,6 +11,7 @@ const stockRoutes = require("./routes/stockRoutes");
 const receiptRoutes = require("./routes/receiptRoutes");
 const deliveryRoutes = require("./routes/deliveryRoutes");
 const transferRoutes = require("./routes/transferRoutes");
+const adjustmentRoutes = require("./routes/adjustmentRoutes");
 
 const app = express();
 
@@ -25,6 +26,7 @@ app.use("/api/stock", stockRoutes);
 app.use("/api/receipts", receiptRoutes);
 app.use("/api/deliveries", deliveryRoutes);
 app.use("/api/transfers", transferRoutes);
+app.use("/api/adjustments", adjustmentRoutes);
 
 // app.get("/test", (req, res) => {
 //   res.json({ message: "Server route is working" });
