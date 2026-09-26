@@ -14,6 +14,7 @@ const transferRoutes = require("./routes/transferRoutes");
 const adjustmentRoutes = require("./routes/adjustmentRoutes");
 const movementRoutes = require("./routes/movementRoutes");
 const dashboardRoutes = require("./routes/dashboardRoutes");
+const authRoutes = require("./routes/authRoutes");
 
 const app = express();
 
@@ -31,6 +32,7 @@ app.use("/api/transfers", transferRoutes);
 app.use("/api/adjustments", adjustmentRoutes);
 app.use("/api/movements", movementRoutes);
 app.use("/api/dashboard", dashboardRoutes);
+app.use("/api/auth", authRoutes);
 // app.get("/test", (req, res) => {
 //   res.json({ message: "Server route is working" });
 // });
