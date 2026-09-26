@@ -5,6 +5,8 @@ require("dotenv").config();
 const pool = require("./config/db");
 const productRoutes = require("./routes/productRoutes");
 const categoryRoutes = require("./routes/categoryRoutes");
+const warehouseRoutes = require("./routes/warehouseRoutes");
+const locationRoutes = require("./routes/locationRoutes");
 
 const app = express();
 
@@ -13,6 +15,8 @@ app.use(express.json());
 
 app.use("/api/products", productRoutes);
 app.use("/api/categories", categoryRoutes);
+app.use("/api/warehouses", warehouseRoutes);
+app.use("/api/locations", locationRoutes);
 // app.get("/test", (req, res) => {
 //   res.json({ message: "Server route is working" });
 // });
