@@ -13,6 +13,7 @@ import Dashboard from './pages/Dashboard'
 import Products from './pages/Products'
 import Deliveries from './pages/Deliveries'
 import Transfers from './pages/Transfers'
+import MoveHistory from './pages/MoveHistory'
 import StockAdjustment from './components/stock/StockAdjustment'
 
 const initialMovements = [
@@ -539,6 +540,10 @@ function App() {
             <Transfers />
           ) : page === 'Stock Adjustments' ? (
             <StockAdjustment />
+
+          ) : page === 'Move History' ? (
+            <MoveHistory />
+
           ) : (
             <div className="placeholder-page">
               <div className="placeholder-icon">▦</div>
