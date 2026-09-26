@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react'
 import {
   apiRequest,
@@ -15,13 +14,6 @@ import Deliveries from './pages/Deliveries'
 import Transfers from './pages/Transfers'
 import MoveHistory from './pages/MoveHistory'
 import StockAdjustment from './components/stock/StockAdjustment'
-
-const initialMovements = [
-  { id: 'REC/001', product: 'Steel Rods', type: 'Receipt', quantity: '+50 Kg', status: 'Done' },
-  { id: 'DEL/002', product: 'Office Chairs', type: 'Delivery', quantity: '-10 Units', status: 'Done' },
-  { id: 'INT/003', product: 'Copper Wire', type: 'Internal Transfer', quantity: '80 Meters', status: 'Waiting' },
-  { id: 'ADJ/004', product: 'Safety Helmets', type: 'Adjustment', quantity: '-2 Units', status: 'Done' },
-]
 
 function getInitials(name = '', email = '') {
   const source = name || email || 'U'
@@ -46,6 +38,7 @@ function App() {
   const [categories, setCategories] = useState([])
   const [locations, setLocations] = useState([])
   const [dashboardData, setDashboardData] = useState({})
+  const [movements, setMovements] = useState([])
 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -65,7 +58,7 @@ function App() {
     unit: 'Units',
     stock: '',
     minStock: '',
-    location: ''
+    location: '',
   })
 
   async function loadData() {
@@ -82,13 +75,15 @@ function App() {
         stockData,
         categoriesData,
         locationsData,
-        dashboard
+        dashboard,
+        movementsData,
       ] = await Promise.all([
         apiRequest('/products'),
         apiRequest('/stock'),
         apiRequest('/categories'),
         apiRequest('/locations'),
-        apiRequest('/dashboard')
+        apiRequest('/dashboard'),
+        apiRequest('/movements'),
       ])
 
       setProducts(productsData)
@@ -97,6 +92,8 @@ function App() {
       setLocations(locationsData)
       setDashboardData(dashboard)
 
+      // Real stock movements from the backend
+      setMovements(Array.isArray(movementsData) ? movementsData : [])
     } catch (err) {
       console.error('Failed to load backend data:', err)
       setError(err.message || 'Unable to connect to backend')
@@ -192,7 +189,7 @@ function App() {
 
   const displayProducts = products.map(product => {
     const records = stockRecords.filter(
-      item => Number(item.product_id) === Number(product.id)
+      (item) => Number(item.product_id) === Number(product.id)
     )
 
     const quantity = records.reduce(
@@ -204,8 +201,8 @@ function App() {
       ...product,
       stock: quantity,
       minStock: Number(product.reorder_level || 0),
-      location: records.map(item => item.location_name).join(', ') || '-',
-      stockRecords: records
+      location: records.map((item) => item.location_name).join(', ') || '-',
+      stockRecords: records,
     }
   })
 
@@ -217,7 +214,7 @@ function App() {
   const lowStock = Number(dashboardData.low_stock || 0)
   const outOfStock = Number(dashboardData.out_of_stock || 0)
 
-  const filteredProducts = displayProducts.filter(product =>
+  const filteredProducts = displayProducts.filter((product) =>
     `${product.name} ${product.sku} ${product.category || ''}`
       .toLowerCase()
       .includes(search.toLowerCase())
@@ -233,7 +230,7 @@ function App() {
       unit: 'Units',
       stock: '',
       minStock: '',
-      location: locations.length ? String(locations[0].id) : ''
+      location: locations.length ? String(locations[0].id) : '',
     })
 
     setShowForm(true)
@@ -256,8 +253,8 @@ function App() {
           sku: form.sku,
           category_id: form.category ? Number(form.category) : null,
           unit: form.unit,
-          reorder_level: Number(form.minStock || 0)
-        })
+          reorder_level: Number(form.minStock || 0),
+        }),
       })
 
       if (form.stock !== '' && form.location) {
@@ -266,8 +263,8 @@ function App() {
           body: JSON.stringify({
             product_id: product.id,
             location_id: Number(form.location),
-            quantity: Number(form.stock)
-          })
+            quantity: Number(form.stock),
+          }),
         })
       }
 
@@ -276,7 +273,6 @@ function App() {
 
       await loadData()
       alert('Product added successfully!')
-
     } catch (err) {
       console.error('Error adding product:', err)
       alert(err.message || 'Failed to add product')
@@ -389,14 +385,16 @@ function App() {
           <span className="workspace-arrow">⌄</span>
         </div>
 
-        {navGroups.map(group => (
+        {navGroups.map((group) => (
           <div className="nav-group" key={group.title}>
             <p className="nav-heading">{group.title}</p>
 
-            {group.items.map(item => (
+            {group.items.map((item) => (
               <button
                 key={item.name}
-                className={`nav-item ${page === item.name ? 'active' : ''}`}
+                className={`nav-item ${
+                  page === item.name ? 'active' : ''
+                }`}
                 onClick={() => {
                   setPage(item.name)
                   setSearch('')
@@ -500,7 +498,7 @@ function App() {
               products={displayProducts}
               lowStock={lowStock}
               outOfStock={outOfStock}
-              initialMovements={initialMovements}
+              initialMovements={movements}
               dashboardData={dashboardData}
               onAddProduct={() => {
                 setPage('Products')
