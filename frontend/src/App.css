@@ -962,3 +962,113 @@ tbody tr:hover {
     font-size: 14px;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   FRIEND 2 — Operations Module Styles (Receipts / Deliveries / Transfers)
+   These extend the team's existing design system.
+═══════════════════════════════════════════════════════════════ */
+
+.ops-module {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* Form components */
+.ops-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.ops-form-group label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.ops-input {
+  padding: 9px 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 14px;
+  color: #111827;
+  background: #fff;
+  outline: none;
+  transition: border-color 0.15s;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.ops-input:focus {
+  border-color: #7c3aed;
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.08);
+}
+
+/* Error message */
+.ops-error {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  margin-bottom: 16px;
+}
+
+/* View button in tables */
+.ops-view-btn {
+  padding: 5px 14px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  background: #fff;
+  color: #374151;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.ops-view-btn:hover {
+  background: #f5f3ff;
+  border-color: #7c3aed;
+  color: #7c3aed;
+}
+
+/* Delivery status flow bar */
+.ops-status-flow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 12px 20px;
+  flex-wrap: wrap;
+}
+
+.ops-step {
+  padding: 4px 14px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 500;
+  background: #f3f4f6;
+  color: #9ca3af;
+}
+
+.ops-step.active {
+  background: #ede9fe;
+  color: #7c3aed;
+  font-weight: 600;
+}
+
+.ops-step.done {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+/* Draft badge (not in team's existing status-badge set) */
+.status-badge.draft-badge {
+  background: #f3f4f6;
+  color: #6b7280;
+}

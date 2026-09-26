@@ -1,6 +1,10 @@
 
 import { useState } from 'react'
 import './App.css'
+import Receipts from './pages/Receipts'
+import Deliveries from './pages/Deliveries'
+import Transfers from './pages/Transfers'
+import StockAdjustment from './components/stock/StockAdjustment'
 
 const initialProducts = [
   { id: 1, name: 'Steel Rods', sku: 'ST-001', category: 'Raw Materials', unit: 'Kg', stock: 150, minStock: 50, location: 'Main Warehouse' },
@@ -173,7 +177,7 @@ function App() {
           <div className="topbar-actions">
             <span className="live-indicator"><span /> Demo Data</span>
             <button className="icon-button" aria-label="Notifications"
-              onClick={() => alert('Notifications will be connected later.')}>♧</button>
+              onClick={() => alert('Notifications will be connected later.')}>🔔</button>
             <div className="topbar-avatar">DV</div>
           </div>
         </header>
@@ -209,7 +213,7 @@ function App() {
                   <h2>Stock Summary</h2>
                   <p>Real-time snapshot of your inventory</p>
                 </div>
-                <span className="date-label">◷ Today</span>
+                <span className="date-label">📅 Today</span>
               </div>
 
               <div className="stats-grid">
@@ -220,7 +224,7 @@ function App() {
                   </div>
                   <h3>{totalStock.toLocaleString()}</h3>
                   <p className="stat-caption">Units across all products</p>
-                  <div className="stat-footer purple-text">↗ {products.length} product types</div>
+                  <div className="stat-footer purple-text">↑ {products.length} product types</div>
                 </div>
 
                 <div className="stat-card">
@@ -236,7 +240,7 @@ function App() {
                 <div className="stat-card">
                   <div className="stat-top">
                     <span>Out of Stock</span>
-                    <span className="stat-icon red">⊘</span>
+                    <span className="stat-icon red">✖</span>
                   </div>
                   <h3>{outOfStock}</h3>
                   <p className="stat-caption">Products with zero stock</p>
@@ -418,6 +422,14 @@ function App() {
                 </div>
               )}
             </>
+          ) : page === 'Receipts' ? (
+            <Receipts />
+          ) : page === 'Delivery Orders' ? (
+            <Deliveries />
+          ) : page === 'Internal Transfers' ? (
+            <Transfers />
+          ) : page === 'Stock Adjustments' ? (
+            <StockAdjustment />
           ) : (
             <div className="placeholder-page">
               <div className="placeholder-icon">▦</div>
