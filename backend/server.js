@@ -12,6 +12,8 @@ const receiptRoutes = require("./routes/receiptRoutes");
 const deliveryRoutes = require("./routes/deliveryRoutes");
 const transferRoutes = require("./routes/transferRoutes");
 const adjustmentRoutes = require("./routes/adjustmentRoutes");
+const movementRoutes = require("./routes/movementRoutes");
+const dashboardRoutes = require("./routes/dashboardRoutes");
 
 const app = express();
 
@@ -27,7 +29,8 @@ app.use("/api/receipts", receiptRoutes);
 app.use("/api/deliveries", deliveryRoutes);
 app.use("/api/transfers", transferRoutes);
 app.use("/api/adjustments", adjustmentRoutes);
-
+app.use("/api/movements", movementRoutes);
+app.use("/api/dashboard", dashboardRoutes);
 // app.get("/test", (req, res) => {
 //   res.json({ message: "Server route is working" });
 // });
