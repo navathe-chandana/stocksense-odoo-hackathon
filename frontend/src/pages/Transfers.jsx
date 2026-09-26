@@ -1,23 +1,16 @@
 import { useState, useEffect } from 'react';
 import {
   getTransfers, getProducts, getLocations,
-  mockCreateTransfer, getTransferById, mockCompleteTransfer
+  mockCreateTransfer, getTransferById, mockValidateTransfer
 } from '../mock/operationsData';
 
 // ─── Transfer List ───────────────────────────────────────────────────────────
 function TransferList({ setSubPage }) {
   const [transfers, setTransfers] = useState([]);
-  const [locations, setLocations] = useState([]);
 
   useEffect(() => {
     getTransfers().then(setTransfers).catch(console.error);
-    getLocations().then(setLocations).catch(console.error);
   }, []);
-
-  const getLocationName = (id) => {
-    const l = locations.find(x => x.id === id);
-    return l ? l.name : `Location #${id}`;
-  };
 
   return (
     <div className="ops-module">
@@ -49,10 +42,10 @@ function TransferList({ setSubPage }) {
               {transfers.map(t => (
                 <tr key={t.id}>
                   <td className="reference">INT/{String(t.id).padStart(3, '0')}</td>
-                  <td>{getLocationName(t.source_location_id)}</td>
-                  <td>{getLocationName(t.destination_location_id)}</td>
+                  <td>{t.from_location_name || `Location #${t.from_location_id}`}</td>
+                  <td>{t.to_location_name || `Location #${t.to_location_id}`}</td>
                   <td>
-                    <span className={`status-badge ${t.status === 'completed' ? 'done' : 'waiting'}`}>
+                    <span className={`status-badge ${t.status === 'validated' ? 'done' : 'waiting'}`}>
                       {t.status}
                     </span>
                   </td>
@@ -96,16 +89,16 @@ function CreateTransfer({ setSubPage }) {
     setError(null);
     if (!selectedProduct) return setError('Please select a product');
     if (!sourceLocation || !destinationLocation) return setError('Please select both source and destination locations');
-    if (sourceLocation === destinationLocation) return setError('Source and destination cannot be the same location');
+    if (sourceLocation === destinationLocation) return setError('Source and destination must be different');
     if (quantity <= 0) return setError('Quantity must be greater than 0');
 
     setLoading(true);
     try {
-      await mockCreateTransfer(
-        parseInt(sourceLocation),
-        parseInt(destinationLocation),
-        [{ product_id: parseInt(selectedProduct), quantity: parseInt(quantity) }]
-      );
+      await mockCreateTransfer({
+        from_location_id: Number(sourceLocation),
+        to_location_id: Number(destinationLocation),
+        items: [{ product_id: Number(selectedProduct), quantity: Number(quantity) }]
+      });
       setSubPage('list');
     } catch (err) {
       setError(err.message);
@@ -139,14 +132,14 @@ function CreateTransfer({ setSubPage }) {
               <label>Source Location</label>
               <select className="ops-input" value={sourceLocation} onChange={e => setSourceLocation(e.target.value)}>
                 <option value="">Select source location...</option>
-                {locations.map(l => <option key={l.id} value={l.id}>{l.name} ({l.type})</option>)}
+                {locations.map(l => <option key={l.id} value={l.id}>{l.name} {l.warehouse_name ? `(${l.warehouse_name})` : ''}</option>)}
               </select>
             </div>
             <div className="ops-form-group">
               <label>Destination Location</label>
               <select className="ops-input" value={destinationLocation} onChange={e => setDestinationLocation(e.target.value)}>
                 <option value="">Select destination location...</option>
-                {locations.map(l => <option key={l.id} value={l.id}>{l.name} ({l.type})</option>)}
+                {locations.map(l => <option key={l.id} value={l.id}>{l.name} {l.warehouse_name ? `(${l.warehouse_name})` : ''}</option>)}
               </select>
             </div>
             <div className="ops-form-group">
@@ -197,7 +190,7 @@ function TransferDetails({ transferId, setSubPage }) {
 
   const handleComplete = async () => {
     try {
-      await mockCompleteTransfer(transferId);
+      await mockValidateTransfer(transferId);
       loadData();
     } catch (err) {
       alert(err.message);
@@ -225,7 +218,7 @@ function TransferDetails({ transferId, setSubPage }) {
           <h1>Transfer INT/{String(transfer.id).padStart(3, '0')}</h1>
         </div>
         <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-          <span className={`status-badge ${transfer.status === 'completed' ? 'done' : 'waiting'}`} style={{ fontSize: 14, padding: '6px 14px' }}>
+          <span className={`status-badge ${transfer.status === 'validated' ? 'done' : 'waiting'}`} style={{ fontSize: 14, padding: '6px 14px' }}>
             {transfer.status.toUpperCase()}
           </span>
           <button className="secondary-button" onClick={() => setSubPage('list')}>← Back</button>
@@ -234,10 +227,9 @@ function TransferDetails({ transferId, setSubPage }) {
 
       <div className="table-card" style={{ marginBottom: 20 }}>
         <div style={{ padding: '20px 24px' }}>
-          <p><strong>From:</strong> {getLocationName(transfer.source_location_id)}</p>
-          <p><strong>To:</strong> {getLocationName(transfer.destination_location_id)}</p>
+          <p><strong>From:</strong> {transfer.from_location_name || getLocationName(transfer.from_location_id)}</p>
+          <p><strong>To:</strong> {transfer.to_location_name || getLocationName(transfer.to_location_id)}</p>
           <p><strong>Created:</strong> {new Date(transfer.created_at).toLocaleString()}</p>
-          {transfer.completed_at && <p><strong>Completed:</strong> {new Date(transfer.completed_at).toLocaleString()}</p>}
         </div>
       </div>
 
@@ -249,7 +241,7 @@ function TransferDetails({ transferId, setSubPage }) {
           <table>
             <thead><tr><th>PRODUCT</th><th>QUANTITY</th></tr></thead>
             <tbody>
-              {transfer.lines && transfer.lines.map((line, idx) => (
+              {transfer.items && transfer.items.map((line, idx) => (
                 <tr key={idx}>
                   <td>{getProductName(line.product_id)}</td>
                   <td className="quantity">{line.quantity}</td>
@@ -263,7 +255,7 @@ function TransferDetails({ transferId, setSubPage }) {
       {transfer.status === 'draft' && (
         <div style={{ marginTop: 20 }}>
           <button className="primary-button" style={{ background: '#16a34a' }} onClick={handleComplete}>
-            ✓ Complete Transfer
+            ✓ Validate Transfer
           </button>
         </div>
       )}

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import {
-  getDeliveries, getProducts, mockCreateDelivery,
+  getDeliveries, getProducts, getLocations, mockCreateDelivery,
   getDeliveryById, mockValidateDelivery, mockUpdateDeliveryStatus
 } from '../mock/operationsData';
 
@@ -31,7 +31,7 @@ function DeliveryList({ setSubPage }) {
             <thead>
               <tr>
                 <th>ID</th>
-                <th>CUSTOMER</th>
+                <th>LOCATION</th>
                 <th>STATUS</th>
                 <th>DATE</th>
                 <th>ACTIONS</th>
@@ -41,9 +41,9 @@ function DeliveryList({ setSubPage }) {
               {deliveries.map(d => (
                 <tr key={d.id}>
                   <td className="reference">DEL/{String(d.id).padStart(3, '0')}</td>
-                  <td>{d.customer_name}</td>
+                  <td>{d.location_name || `Location #${d.location_id}`}</td>
                   <td>
-                    <span className={`status-badge ${d.status === 'validated' ? 'done' : d.status === 'picked' || d.status === 'packed' ? 'waiting' : 'draft-badge'}`}>
+                    <span className={`status-badge ${d.status === 'validated' ? 'done' : 'waiting'}`}>
                       {d.status}
                     </span>
                   </td>
@@ -68,27 +68,32 @@ function DeliveryList({ setSubPage }) {
 
 // ─── Create Delivery ─────────────────────────────────────────────────────────
 function CreateDelivery({ setSubPage }) {
-  const [customer, setCustomer] = useState('');
+  const [locations, setLocations] = useState([]);
   const [products, setProducts] = useState([]);
+  const [selectedLocation, setSelectedLocation] = useState('');
   const [selectedProduct, setSelectedProduct] = useState('');
   const [quantity, setQuantity] = useState(1);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    getLocations().then(setLocations).catch(console.error);
     getProducts().then(setProducts).catch(console.error);
   }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
-    if (!customer.trim()) return setError('Customer name is required');
+    if (!selectedLocation) return setError('Please select a location');
     if (!selectedProduct) return setError('Please select a product');
     if (quantity <= 0) return setError('Quantity must be greater than 0');
 
     setLoading(true);
     try {
-      await mockCreateDelivery(customer, [{ product_id: parseInt(selectedProduct), quantity: parseInt(quantity) }]);
+      await mockCreateDelivery({
+        location_id: Number(selectedLocation),
+        items: [{ product_id: Number(selectedProduct), quantity: Number(quantity) }]
+      });
       setSubPage('list');
     } catch (err) {
       setError(err.message);
@@ -112,14 +117,11 @@ function CreateDelivery({ setSubPage }) {
           {error && <div className="ops-error">{error}</div>}
           <form onSubmit={handleSubmit}>
             <div className="ops-form-group">
-              <label>Customer Name</label>
-              <input
-                type="text"
-                className="ops-input"
-                value={customer}
-                onChange={e => setCustomer(e.target.value)}
-                placeholder="e.g. John Doe"
-              />
+              <label>Location</label>
+              <select className="ops-input" value={selectedLocation} onChange={e => setSelectedLocation(e.target.value)}>
+                <option value="">Select a location...</option>
+                {locations.map(l => <option key={l.id} value={l.id}>{l.name} {l.warehouse_name ? `(${l.warehouse_name})` : ''}</option>)}
+              </select>
             </div>
             <div className="ops-form-group">
               <label>Product</label>
@@ -156,12 +158,14 @@ function DeliveryDetails({ deliveryId, setSubPage }) {
   const [delivery, setDelivery] = useState(null);
   const [products, setProducts] = useState([]);
   const [error, setError] = useState(null);
+  const [uiStatus, setUiStatus] = useState('draft');
 
   const loadData = async () => {
     try {
       const d = await getDeliveryById(deliveryId);
       if (!d) throw new Error('Delivery not found');
       setDelivery({ ...d });
+      setUiStatus(d.status === 'validated' ? 'validated' : 'draft');
       const p = await getProducts();
       setProducts(p);
     } catch (err) {
@@ -173,12 +177,16 @@ function DeliveryDetails({ deliveryId, setSubPage }) {
 
   const handleAction = async (action) => {
     try {
+      if (action === 'pick') {
+        setUiStatus('picked');
+        return;
+      }
+      if (action === 'pack') {
+        setUiStatus('packed');
+        return;
+      }
       if (action === 'validate') {
         await mockValidateDelivery(deliveryId);
-      } else if (action === 'pick') {
-        await mockUpdateDeliveryStatus(deliveryId, 'picked');
-      } else if (action === 'pack') {
-        await mockUpdateDeliveryStatus(deliveryId, 'packed');
       }
       loadData();
     } catch (err) {
@@ -191,11 +199,8 @@ function DeliveryDetails({ deliveryId, setSubPage }) {
     return p ? `${p.name} (${p.sku})` : `Product #${pid}`;
   };
 
-  const statusClass = delivery
-    ? delivery.status === 'validated' ? 'done'
-    : delivery.status === 'picked' || delivery.status === 'packed' ? 'waiting'
-    : 'draft-badge'
-    : '';
+  const effectiveStatus = delivery && delivery.status === 'validated' ? 'validated' : uiStatus;
+  const statusClass = effectiveStatus === 'validated' ? 'done' : effectiveStatus === 'picked' || effectiveStatus === 'packed' ? 'waiting' : 'draft-badge';
 
   if (error) return <div className="ops-error">{error}</div>;
   if (!delivery) return <div style={{ padding: 32 }}>Loading...</div>;
@@ -209,17 +214,16 @@ function DeliveryDetails({ deliveryId, setSubPage }) {
         </div>
         <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
           <span className={`status-badge ${statusClass}`} style={{ fontSize: 14, padding: '6px 14px' }}>
-            {delivery.status.toUpperCase()}
+            {effectiveStatus.toUpperCase()}
           </span>
           <button className="secondary-button" onClick={() => setSubPage('list')}>← Back</button>
         </div>
       </div>
 
-      {/* Status flow indicator */}
       <div className="ops-status-flow">
         {['draft', 'picked', 'packed', 'validated'].map((step, i) => (
           <div key={step} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span className={`ops-step ${delivery.status === step ? 'active' : ['draft','picked','packed','validated'].indexOf(delivery.status) > i ? 'done' : ''}`}>
+            <span className={`ops-step ${effectiveStatus === step ? 'active' : ['draft','picked','packed','validated'].indexOf(effectiveStatus) > i ? 'done' : ''}`}>
               {step.charAt(0).toUpperCase() + step.slice(1)}
             </span>
             {i < 3 && <span style={{ color: '#ccc' }}>→</span>}
@@ -229,9 +233,8 @@ function DeliveryDetails({ deliveryId, setSubPage }) {
 
       <div className="table-card" style={{ marginBottom: 20 }}>
         <div style={{ padding: '20px 24px' }}>
-          <p><strong>Customer:</strong> {delivery.customer_name}</p>
+          <p><strong>Location:</strong> {delivery.location_name || `Location #${delivery.location_id}`}</p>
           <p><strong>Created:</strong> {new Date(delivery.created_at).toLocaleString()}</p>
-          {delivery.validated_at && <p><strong>Validated:</strong> {new Date(delivery.validated_at).toLocaleString()}</p>}
         </div>
       </div>
 
@@ -243,7 +246,7 @@ function DeliveryDetails({ deliveryId, setSubPage }) {
           <table>
             <thead><tr><th>PRODUCT</th><th>QUANTITY</th></tr></thead>
             <tbody>
-              {delivery.lines && delivery.lines.map((line, idx) => (
+              {delivery.items && delivery.items.map((line, idx) => (
                 <tr key={idx}>
                   <td>{getProductName(line.product_id)}</td>
                   <td className="quantity">{line.quantity}</td>
@@ -255,13 +258,13 @@ function DeliveryDetails({ deliveryId, setSubPage }) {
       </div>
 
       <div style={{ marginTop: 20, display: 'flex', gap: 12 }}>
-        {delivery.status === 'draft' && (
+        {effectiveStatus === 'draft' && (
           <button className="primary-button" onClick={() => handleAction('pick')}>📦 Pick Items</button>
         )}
-        {delivery.status === 'picked' && (
+        {effectiveStatus === 'picked' && (
           <button className="primary-button" onClick={() => handleAction('pack')}>🗃 Pack Items</button>
         )}
-        {(delivery.status === 'packed' || delivery.status === 'draft') && delivery.status !== 'validated' && (
+        {(effectiveStatus === 'packed' || effectiveStatus === 'draft') && effectiveStatus !== 'validated' && (
           <button className="primary-button" style={{ background: '#16a34a' }} onClick={() => handleAction('validate')}>
             ✓ Validate &amp; Ship
           </button>
