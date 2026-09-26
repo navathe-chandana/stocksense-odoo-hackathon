@@ -305,10 +305,6 @@ function App() {
         { name: 'Move History', icon: '↻' },
       ],
     },
-    {
-      title: 'CONFIGURATION',
-      items: [{ name: 'Settings', icon: '⚙' }],
-    },
   ]
 
   if (authLoading) {
